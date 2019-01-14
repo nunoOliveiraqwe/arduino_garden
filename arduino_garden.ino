@@ -14,7 +14,9 @@
 #define MOISTURE_PIN_1 A0
 #define MOISTURE_PIN_2 A1
 
-#define check_time 60000
+#define check_time 18000000
+
+//#define check_time 10000
 
 #define DRY 550
 #define WET 200
@@ -144,28 +146,19 @@ void check_water() {
     water_hour_max = 22;
   } else {
     water_hour_min = 8;
-    water_hour_max = 19;
+    water_hour_max = 20;
   }
   if (current_hour >= water_hour_min && current_hour <= water_hour_max) {
-    if ((DRY - 200)>(get_moisture_value(MOISTURE_PIN_1) / 2)) { //soil saturation value depends on the plant
+    if ((get_moisture_value(MOISTURE_PIN_1))>300) { //soil saturation value depends on the plant
       start_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
-      sleep_value = 15 * 1000;
-    } else {
+      delay(8000);
       stop_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
-      sleep_value = check_time;
     }
-    if ((DRY - 200)>(get_moisture_value(MOISTURE_PIN_2) / 2)) { //soil saturation value depends on the plant
-      start_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
-      sleep_value = 15 * 1000;
-    } else {
+    if ((get_moisture_value(MOISTURE_PIN_2))>300) { //soil saturation value depends on the plant
+      start_motor(PIN_1_MOTOR_B, PIN_2_MOTOR_B);
+      delay(8000);
       stop_motor(PIN_1_MOTOR_B, PIN_2_MOTOR_B);
-      sleep_value = check_time;
     }
-  } else {
-    stop_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
-    sleep_value = check_time;
-    stop_motor(PIN_1_MOTOR_B, PIN_2_MOTOR_B);
-    sleep_value = check_time;
   }
 }
 
