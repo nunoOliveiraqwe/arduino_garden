@@ -147,14 +147,14 @@ void check_water() {
     water_hour_max = 19;
   }
   if (current_hour >= water_hour_min && current_hour <= water_hour_max) {
-    if ((get_moisture_value(MOISTURE_PIN_1) / 2) > (DRY - 200)) { //soil saturation value depends on the plant
+    if ((DRY - 200)>(get_moisture_value(MOISTURE_PIN_1) / 2)) { //soil saturation value depends on the plant
       start_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
       sleep_value = 15 * 1000;
     } else {
       stop_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
       sleep_value = check_time;
     }
-    if ((get_moisture_value(MOISTURE_PIN_2) / 2) > (DRY - 200)) { //soil saturation value depends on the plant
+    if ((DRY - 200)>(get_moisture_value(MOISTURE_PIN_2) / 2)) { //soil saturation value depends on the plant
       start_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
       sleep_value = 15 * 1000;
     } else {
