@@ -16,6 +16,10 @@
 
 #define check_time 18000000
 
+#define max_watering_times_per_pot 3
+
+#define number_of_pots 2
+
 //#define check_time 10000
 
 #define DRY 550
@@ -25,13 +29,23 @@ RTC_DS1307 rtc;
 OneWire wires (TEMP_PIN);
 DallasTemperature sensors (&wires);
 
+struct motor {
+  int motor_pin_1;
+  int motor_pin_2;
+  int moisture_pin;
+};
 
 struct garden_sensors {
   int current_moisture_value_sensor_1;
   int current_moisture_value_sensor_2;
   float current_temp;
+  int current_day;
+  int watering_times[number_of_pots];
+  motor motors[number_of_pots];
+  int previous_time;
   int previous_moisture_value_sensor_1;
   int previous_moisture_value_sensor_2;
+  int previous_day;
   float previous_temp;
 };
 
@@ -44,6 +58,7 @@ void setup(void)
 {
   Serial.begin(9600);
   init_rtc();
+  init_motors();
   init_sensors();
   init_garden();
 }
@@ -79,13 +94,26 @@ void init_sensors() {
   sensors.begin();
 }
 
+
+void init_motors() {
+  garden.motors[0].motor_pin_1 = PIN_1_MOTOR_A;
+  garden.motors[0].motor_pin_2 = PIN_2_MOTOR_A;
+  garden.motors[0].moisture_pin = MOISTURE_PIN_2;
+  garden.motors[1].motor_pin_1 = PIN_1_MOTOR_B;
+  garden.motors[1].motor_pin_2 = PIN_2_MOTOR_B;
+  garden.motors[1].moisture_pin = MOISTURE_PIN_1;
+}
+
 void init_garden() {
   garden.current_moisture_value_sensor_1 = 0;
   garden.current_moisture_value_sensor_2 = 0;
   garden.current_temp = 0;
+  garden.current_day = get_day();
   garden.previous_moisture_value_sensor_1 = 0;
   garden.previous_moisture_value_sensor_2 = 0;
   garden.previous_temp = 0;
+  garden.previous_day = get_day();
+  reset_watering_times();
 }
 
 float get_temperature() {
@@ -137,6 +165,15 @@ int get_moisture_value(int sensor) {
 
 
 void check_water() {
+  for (int i = 0; i < number_of_pots; i++) {
+    if (garden.watering_times[i] < max_watering_times_per_pot) {
+      water(i);
+    }
+  }
+}
+
+
+void water(int motor_index) {
   int current_month = get_month();
   int current_hour = get_hour();
   int water_hour_min = 0;
@@ -149,15 +186,13 @@ void check_water() {
     water_hour_max = 20;
   }
   if (current_hour >= water_hour_min && current_hour <= water_hour_max) {
-    if ((get_moisture_value(MOISTURE_PIN_1))>300) { //soil saturation value depends on the plant
-      start_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
-      delay(8000);
-      stop_motor(PIN_1_MOTOR_A, PIN_2_MOTOR_A);
-    }
-    if ((get_moisture_value(MOISTURE_PIN_2))>300) { //soil saturation value depends on the plant
-      start_motor(PIN_1_MOTOR_B, PIN_2_MOTOR_B);
-      delay(8000);
-      stop_motor(PIN_1_MOTOR_B, PIN_2_MOTOR_B);
+    if ((get_moisture_value(garden.motors[motor_index].moisture_pin)) > 300) { //soil saturation value depends on the plant
+      start_motor(garden.motors[motor_index].motor_pin_1, garden.motors[motor_index].motor_pin_2);
+      Serial.print("Starting motor ");
+      Serial.println(motor_index);
+      delay(4000);
+      stop_motor(garden.motors[motor_index].motor_pin_1, garden.motors[motor_index].motor_pin_2);
+      garden.watering_times[motor_index]++;
     }
   }
 }
@@ -166,10 +201,20 @@ void update_garden_values() {
   garden.previous_moisture_value_sensor_1 = garden.current_moisture_value_sensor_1;
   garden.previous_moisture_value_sensor_2 = garden.current_moisture_value_sensor_2;
   garden.previous_temp = garden.current_temp;
-
+  garden.previous_day = garden.current_day;
   garden.current_temp = get_temperature();
   garden.current_moisture_value_sensor_1 = get_moisture_value(MOISTURE_PIN_1);
   garden.current_moisture_value_sensor_2 = get_moisture_value(MOISTURE_PIN_2);
+  garden.current_day = get_day();
+  if (garden.current_day != garden.previous_day) {
+    reset_watering_times();
+  }
+}
+
+void reset_watering_times() {
+  for (int i = 0; i < number_of_pots; i++) {
+    garden.watering_times[i] = 0;
+  }
 }
 
 void print_current_values() {
@@ -179,6 +224,12 @@ void print_current_values() {
   Serial.println(garden.current_moisture_value_sensor_2);
   Serial.print("Temperature: ");
   Serial.println(garden.current_temp);
+  for(int i=0;i<number_of_pots;i++){
+    Serial.print("Watering times for pot ");
+    Serial.print(i);
+    Serial.print(" ");
+    Serial.println(garden.watering_times[i]);
+  }
   DateTime now = get_date_time();
   Serial.print(now.year(), DEC);
   Serial.print('/');
