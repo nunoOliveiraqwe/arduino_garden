@@ -1,6 +1,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <Wire.h>
+#include <SoftwareSerial.h>
 #include "RTClib.h"
 
 
@@ -14,13 +15,14 @@
 #define MOISTURE_PIN_1 A0
 #define MOISTURE_PIN_2 A1
 
-#define check_time 18000000
-
 #define max_watering_times_per_pot 3
 
 #define number_of_pots 2
 
+#define check_time 18000000
 //#define check_time 10000
+
+#define DELAY_TIME 10000
 
 #define DRY 550
 #define WET 200
@@ -28,6 +30,8 @@
 RTC_DS1307 rtc;
 OneWire wires (TEMP_PIN);
 DallasTemperature sensors (&wires);
+SoftwareSerial bt_serial(10,11);
+unsigned long current_check_time = 0;
 
 struct motor {
   int motor_pin_1;
@@ -51,23 +55,28 @@ struct garden_sensors {
 
 struct garden_sensors garden;
 
-unsigned long sleep_value = check_time;
-
 
 void setup(void)
 {
   Serial.begin(9600);
+  bt_serial.begin(38400);
   init_rtc();
   init_motors();
   init_sensors();
   init_garden();
 }
+
 void loop(void)
 {
   update_garden_values();
-  check_water();
-  print_current_values();
-  delay(sleep_value);
+  if(current_check_time<=0){
+    check_water();
+    current_check_time = check_time;
+  }
+  //print_current_values();
+  print_bt_serial_current_values();
+  delay(DELAY_TIME);
+  current_check_time -= DELAY_TIME;
 }
 
 
@@ -189,7 +198,9 @@ void water(int motor_index) {
     if ((get_moisture_value(garden.motors[motor_index].moisture_pin)) > 300) { //soil saturation value depends on the plant
       start_motor(garden.motors[motor_index].motor_pin_1, garden.motors[motor_index].motor_pin_2);
       Serial.print("Starting motor ");
+      bt_serial.print("Starting motor ");
       Serial.println(motor_index);
+      bt_serial.println(motor_index);
       delay(4000);
       stop_motor(garden.motors[motor_index].motor_pin_1, garden.motors[motor_index].motor_pin_2);
       garden.watering_times[motor_index]++;
@@ -243,4 +254,34 @@ void print_current_values() {
   Serial.print(':');
   Serial.print(now.second(), DEC);
   Serial.println();
+}
+
+void print_bt_serial_current_values() {
+  bt_serial.println("-------------------------------------");
+  bt_serial.print("Moisture A0 Sensor: ");
+  bt_serial.println(garden.current_moisture_value_sensor_1);
+  bt_serial.print("Moisture A1 Sensor: ");
+  bt_serial.println(garden.current_moisture_value_sensor_2);
+  bt_serial.print("Temperature: ");
+  bt_serial.println(garden.current_temp);
+  for(int i=0;i<number_of_pots;i++){
+    bt_serial.print("Watering times for pot ");
+    bt_serial.print(i);
+    bt_serial.print(" ");
+    bt_serial.println(garden.watering_times[i]);
+  }
+  DateTime now = get_date_time();
+  bt_serial.print(now.year(), DEC);
+  bt_serial.print('/');
+  bt_serial.print(now.month(), DEC);
+  bt_serial.print('/');
+  bt_serial.print(now.day(), DEC);
+  bt_serial.print(" ");
+  bt_serial.print(now.hour(), DEC);
+  bt_serial.print(':');
+  bt_serial.print(now.minute(), DEC);
+  bt_serial.print(':');
+  bt_serial.print(now.second(), DEC);
+  bt_serial.println();
+  bt_serial.println("-------------------------------------");
 }
